@@ -26,13 +26,22 @@ async def ping_handler(client, message):
         f"⚡ **Latency Rank:** {'Excellent' if tg_latency < 200 else 'Stable'}"
     )
 
-@Client.on_message(filters.command("start") & filters.private)
-async def start_cmd(client, message):
-    await message.reply(
-        f"👋 **Hello {message.from_user.first_name}!**\n\n"
-        "I am your professional Channel Manager. Use me to link public channels to private storage vaults.\n\n"
-        "🛠 **Commands:**\n"
-        "• `/register` - Link two channels\n"
-        "• `/links` - View/Manage linked channels\n"
-        "• `/ping` - Check system health"
+from pyrogram import Client, filters
+
+@Client.on_message(filters.command(["start", "help"]) & filters.private)
+async def start_command(client, message):
+    welcome_text = (
+        "👋 **Hello! I am your professional Channel Manager Bot.**\n\n"
+        "I am designed to seamlessly link public channels to private storage vaults, "
+        "sync your content, and allow you to edit messages in both places simultaneously.\n\n"
+        "🛠 **Available Commands:**\n"
+        "• `/register [Alias] [MainID] [StorageID]` - Link a new channel pair.\n"
+        "• `/links` - View and manage your currently linked channels.\n"
+        "• `/msg [Message Link]` - Edit a specific message in both the main channel and storage vault.\n"
+        "• `/sync [Alias] [Start ID] [End ID]` - Batch forward old messages into the storage vault.\n"
+        "• `/analyze [Alias]` - Check for missing messages in the vault.\n"
+        "• `/ping` - Check my system health and database latency.\n\n"
+        "💡 *Tip: Make sure I am an Administrator in both the Main Channel and the Storage Vault!*"
     )
+    
+    await message.reply(welcome_text)
