@@ -33,6 +33,14 @@ async def register_link(alias, main_id, storage_id):
 async def get_all_links():
     return await links_collection.find().to_list(length=None)
 
-# Added for Phase 2: Finding the destination for an incoming message
-async def get_link_by_main_id(main_id):
-    return await links_collection.find_one({"main_id": int(main_id)})
+# Add to your database.py
+async def get_mapping(alias, main_id):
+    return await db[f"map_{alias}"].find_one({"main_id": int(main_id)})
+
+async def update_mapping(alias, main_id, storage_id):
+    await db[f"map_{alias}"].update_one(
+        {"main_id": int(main_id)},
+        {"$set": {"storage_id": int(storage_id)}},
+        upsert=True
+    )
+
