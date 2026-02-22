@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+.env
+my_bot.session
+my_bot.session-journal
