@@ -27,3 +27,23 @@ async def view_links(client, message):
         buttons.append([InlineKeyboardButton(f"⚙️ Manage {item['alias']}", callback_data=f"manage_{item['alias']}")])
 
     await message.reply(text, reply_markup=InlineKeyboardMarkup(buttons))
+from pyrogram import Client, filters
+from database import links_collection
+
+@Client.on_callback_query(filters.regex(r"^manage_"))
+async def manage_callback(client, query):
+    alias = query.data.split("_")[1]
+    data = await links_collection.find_one({"alias": alias})
+    
+    if not data:
+        return await query.answer("❌ This link no longer exists.", show_alert=True)
+
+    text = (
+        f"⚙️ **Managing: {alias}**\n\n"
+        f"🔹 Main: `{data['main_id']}`\n"
+        f"📦 Storage: `{data['storage_id']}`\n\n"
+        "What would you like to do?"
+    )
+    
+    # You can add buttons for deleting or analyzing here
+    await query.edit_message_text(text)
