@@ -32,3 +32,7 @@ async def register_link(alias, main_id, storage_id):
 
 async def get_all_links():
     return await links_collection.find().to_list(length=None)
+
+# Added for Phase 2: Finding the destination for an incoming message
+async def get_link_by_main_id(main_id):
+    return await links_collection.find_one({"main_id": int(main_id)})
