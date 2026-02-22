@@ -2,48 +2,38 @@ from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from database import register_link, get_all_links
 
+# Registers the channels
 @Client.on_message(filters.command("register") & filters.private)
-async def handle_registration(client, message):
-    args = message.command
-    if len(args) != 4:
-        return await message.reply("❌ **Usage:** `/register Alias MainID StorageID`\nEx: `/register Marvel -100123 -100456` ")
+async def cmd_register(client, message):
+    if len(message.command) != 4:
+        return await message.reply(
+            "❌ **Incorrect Usage!**\n\n"
+            "Format: `/register [Alias] [MainID] [StorageID]`\n"
+            "Example: `/register Vefa -10012345678 -10098765432`"
+        )
     
-    name, m_id, s_id = args[1], args[2], args[3]
-    await register_link(name, m_id, s_id)
-    await message.reply(f"✅ **Registered:** `{name}`\n🔗 **Main:** `{m_id}`\n📦 **Storage:** `{s_id}`")
+    alias = message.command[1]
+    main_id = message.command[2]
+    storage_id = message.command[3]
 
+    try:
+        await register_link(alias, main_id, storage_id)
+        await message.reply(f"✅ **Linked Successfully!**\n\n**Alias:** `{alias}`\n**Main:** `{main_id}`\n**Storage:** `{storage_id}`")
+    except Exception as e:
+        await message.reply(f"❌ Database Error: {e}")
+
+# Views the channels
 @Client.on_message(filters.command("links") & filters.private)
-async def view_links(client, message):
-    all_links = await get_all_links()
-    if not all_links:
-        return await message.reply("📭 No channels linked yet.")
-
-    text = "📋 **Managed Channel Pairs**\n\n"
+async def cmd_links(client, message):
+    links = await get_all_links()
+    
+    if not links:
+        return await message.reply("📭 No channels are currently linked.")
+    
     buttons = []
+    for link in links:
+        # This matches the callback.py we made earlier!
+        buttons.append([InlineKeyboardButton(f"⚙️ {link['alias']}", callback_data=f"manage_{link['alias']}")])
     
-    for item in all_links:
-        text += f"🔹 **{item['alias']}**\n┗ Main: `{item['main_id']}`\n"
-        # Adding a button for each alias for future management
-        buttons.append([InlineKeyboardButton(f"⚙️ Manage {item['alias']}", callback_data=f"manage_{item['alias']}")])
-
-    await message.reply(text, reply_markup=InlineKeyboardMarkup(buttons))
-from pyrogram import Client, filters
-from database import links_collection
-
-@Client.on_callback_query(filters.regex(r"^manage_"))
-async def manage_callback(client, query):
-    alias = query.data.split("_")[1]
-    data = await links_collection.find_one({"alias": alias})
-    
-    if not data:
-        return await query.answer("❌ This link no longer exists.", show_alert=True)
-
-    text = (
-        f"⚙️ **Managing: {alias}**\n\n"
-        f"🔹 Main: `{data['main_id']}`\n"
-        f"📦 Storage: `{data['storage_id']}`\n\n"
-        "What would you like to do?"
-    )
-    
-    # You can add buttons for deleting or analyzing here
-    await query.edit_message_text(text)
+    reply_markup = InlineKeyboardMarkup(buttons)
+    await message.reply("📋 **Your Linked Channels:**\nSelect an alias to manage it:", reply_markup=reply_markup)
