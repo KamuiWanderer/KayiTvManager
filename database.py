@@ -1,16 +1,21 @@
 import os
+import time
 from motor.motor_asyncio import AsyncIOMotorClient
 
-# MongoDB Setup
-MONGODB_URI = os.environ.get("MONGODB_URI")
-client = AsyncIOMotorClient(MONGODB_URI)
+# MongoDB Setup - Updated to match your Render dashboard!
+MONGO_URL = os.environ.get("MONGO_URI")
+
+# 🚨 SAFETY TRIPWIRE: Prevents the bot from silently using localhost
+if not MONGO_URL:
+    raise ValueError("❌ CRITICAL ERROR: MONGO_URI is missing from Render Environment Variables!")
+
+client = AsyncIOMotorClient(MONGO_URL)
 
 # Set precisely to the database name seen in your screenshot
 db = client["KayiTvManager"] 
-
 links_collection = db["channel_links"]
 
-# --- Pair Management (Matches your linkage.py requirements) ---
+# --- Pair Management ---
 async def register_link(alias, main_id, storage_id):
     await links_collection.update_one(
         {"alias": alias},
@@ -44,5 +49,6 @@ async def db_ping():
         end_time = time.time()
         # Returns the latency in milliseconds
         return round((end_time - start_time) * 1000, 2) 
-    except Exception:
+    except Exception as e:
+        print(f"MongoDB Ping Failed: {e}")
         return "Offline"
