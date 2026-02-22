@@ -1,39 +1,35 @@
 import asyncio
+import os
 from pyrogram import Client, idle
-from config import API_ID, API_HASH, BOT_TOKEN, OWNER_ID
 from keep_alive import start_ping_service
+
+# Fetching variables directly from Environment (Render)
+API_ID = int(os.environ.get("API_ID"))
+API_HASH = os.environ.get("API_HASH")
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
 
 class Bot(Client):
     def __init__(self):
         super().__init__(
-            "ProductionBot",
+            "ObitoCMS",
             api_id=API_ID,
             api_hash=API_HASH,
             bot_token=BOT_TOKEN,
-            plugins=dict(root="plugins")
+            plugins=dict(root="plugins") # This loads all our new features automatically
         )
 
     async def start(self):
         await super().start()
-        print("Bot is online!")
-        try:
-            await self.send_message(OWNER_ID, "🚀 **Bot Started on Render**\nEnvironment: Python 3.12")
-        except:
-            pass
+        print("🚀 Obito CMS is online!")
+        # Self-pinging Flask server starts here
+        start_ping_service()
 
 async def main():
-    # Start the Flask Keep-Alive server
-    start_ping_service()
-    
-    # Initialize and start the bot
     app = Bot()
     await app.start()
-    
-    # Keep the bot alive
-    await idle()
-    
-    # Stop gracefully
+    await idle() # Keeps the bot running until you stop it
     await app.stop()
 
 if __name__ == "__main__":
+    # Python 3.12+ safe entry point
     asyncio.run(main())
