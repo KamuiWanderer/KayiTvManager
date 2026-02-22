@@ -2,8 +2,8 @@ import asyncio
 from pyrogram import Client, filters
 from database import links_collection, save_map, get_link_by_main_id
 
-# 1. LIVE MIRROR
-@Client.on_message(filters.chat_type.CHANNEL & ~filters.service)
+# 1. LIVE MIRROR (Fixed filter syntax here!)
+@Client.on_message(filters.channel & ~filters.service)
 async def auto_mirror(client, message):
     data = await get_link_by_main_id(message.chat.id)
     if not data: return
