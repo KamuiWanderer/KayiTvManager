@@ -5,12 +5,12 @@ from motor.motor_asyncio import AsyncIOMotorClient
 MONGODB_URI = os.environ.get("MONGODB_URI")
 client = AsyncIOMotorClient(MONGODB_URI)
 
-# SET TO YOUR SPECIFIC DATABASE NAME
+# Set precisely to the database name seen in your screenshot
 db = client["KayiTvManager"] 
 
 links_collection = db["channel_links"]
 
-# --- Pair Management (Fixed function name for linkage.py) ---
+# --- Pair Management (Matches your linkage.py requirements) ---
 async def register_link(alias, main_id, storage_id):
     await links_collection.update_one(
         {"alias": alias},
@@ -24,7 +24,7 @@ async def get_all_links():
 async def get_link_by_main_id(main_id):
     return await links_collection.find_one({"main_id": int(main_id)})
 
-# --- Message Mapping ---
+# --- Message Mapping for Editor & Sync ---
 async def save_map(alias, main_id, storage_id):
     await db[f"map_{alias}"].update_one(
         {"main_id": int(main_id)},
