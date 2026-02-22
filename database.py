@@ -36,11 +36,13 @@ async def get_map(alias, main_id):
     data = await db[f"map_{alias}"].find_one({"main_id": int(main_id)})
     return data["storage_id"] if data else None
 
-
 # --- Database Health Check ---
 async def db_ping():
     try:
+        start_time = time.time()
         await client.admin.command('ping')
-        return True
+        end_time = time.time()
+        # Returns the latency in milliseconds
+        return round((end_time - start_time) * 1000, 2) 
     except Exception:
-        return False
+        return "Offline"
