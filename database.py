@@ -35,3 +35,12 @@ async def save_map(alias, main_id, storage_id):
 async def get_map(alias, main_id):
     data = await db[f"map_{alias}"].find_one({"main_id": int(main_id)})
     return data["storage_id"] if data else None
+
+
+# --- Database Health Check ---
+async def db_ping():
+    try:
+        await client.admin.command('ping')
+        return True
+    except Exception:
+        return False
