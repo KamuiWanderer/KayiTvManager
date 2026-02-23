@@ -46,10 +46,12 @@ async def auto_mirror(client, message):
         print(f"❌ Auto-Mirror Failed for {link_data['alias']}: {error_msg}")
 
 # --- 2. THE ULTIMATE RELOAD COMMAND (Scan + Auto-Sync) ---
-@Client.on_message(filters.command("reload") & filters.private)
+@Client.on_message(filters.command(["resync", "reload"]) & filters.private)
 async def reload_cmd(client, message):
+    print(f"🚨 [SYSTEM] Command received: {message.text}") # Forces a log entry!
+    
     if len(message.command) != 2:
-        return await message.reply("❌ **Usage:** `/reload [Alias]`")
+        return await message.reply("❌ **Usage:** `/resync [Alias]`")
         
     if not USER_SESSION:
         return await message.reply("❌ **System Error:** `USER_SESSION` is missing from Render Environment Variables!")
