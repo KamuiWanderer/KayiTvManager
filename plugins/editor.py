@@ -65,15 +65,17 @@ async def msg_command(client, message):
     if not target_alias:
         return await status_msg.edit(f"❌ This channel is not registered in the bot.\nUse `/register` to link it first.")
         
-    # --- 3. FETCH THE STORAGE MESSAGE ID ---
-    storage_msg_id = await get_map(target_alias, msg_id)
-    
-    if not storage_msg_id:
-        return await status_msg.edit(
-            "❌ **Map not found!**\n"
-            "This message hasn't been synced to the storage vault yet. "
-            "Make sure the bot has forwarded it first."
-        )
+    # --- 3. FETCH THE STORAGE MESSAGE ID (IF IT HAS A VAULT) ---
+    storage_msg_id = None
+    if storage_chat_id:
+        storage_msg_id = await get_map(target_alias, msg_id)
+        
+        if not storage_msg_id:
+            return await status_msg.edit(
+                "❌ **Map not found!**\n"
+                "This message hasn't been synced to the storage vault yet. "
+                "Make sure the bot has forwarded it first."
+            )
 
     # --- 4. LOCK TARGET AND WAIT FOR TEXT ---
     EDIT_STATE[message.from_user.id] = {
@@ -83,17 +85,20 @@ async def msg_command(client, message):
         "main_msg_id": msg_id
     }
 
+    mode_text = "Main + Storage" if storage_chat_id else "Main Channel Only (Standalone)"
+    vault_info = f"**Storage ID:** `{storage_msg_id}`\n" if storage_chat_id else ""
+
     await status_msg.edit(
-        f"✅ **Target Locked!**\n\n"
+        f"✅ **Target Locked! ({mode_text})**\n\n"
         f"**Alias:** `{target_alias}`\n"
         f"**Main ID:** `{msg_id}`\n"
-        f"**Storage ID:** `{storage_msg_id}`\n\n"
+        f"{vault_info}\n"
         f"👇 **Send the new text or caption** you want to replace it with.\n"
         f"*(Or type `/cancel` to abort)*"
     )
 
 # --- 5. HANDLE THE REPLACEMENT TEXT ---
-@Client.on_message(filters.private & filters.text & ~filters.command(["msg", "register", "links", "sync", "analyze", "start", "ping"]))
+@Client.on_message(filters.private & filters.text & ~filters.command(["msg", "register", "links", "sync", "analyze", "start", "ping", "help"]))
 async def process_new_text(client, message):
     user_id = message.from_user.id
     
@@ -106,7 +111,7 @@ async def process_new_text(client, message):
         return await message.reply("🚫 **Edit cancelled.**")
         
     data = EDIT_STATE[user_id]
-    status = await message.reply("🔄 **Editing messages in both channels...**")
+    status = await message.reply("🔄 **Editing message(s)...**")
     
     try:
         # Edit the main channel message (Try Text first, fallback to Caption if it's media)
@@ -123,21 +128,22 @@ async def process_new_text(client, message):
                 caption=message.text.html
             )
         
-        # Edit the storage vault message
-        try:
-            await client.edit_message_text(
-                chat_id=data["storage_chat_id"],
-                message_id=data["storage_msg_id"],
-                text=message.text.html
-            )
-        except Exception:
-            await client.edit_message_caption(
-                chat_id=data["storage_chat_id"],
-                message_id=data["storage_msg_id"],
-                caption=message.text.html
-            )
+        # Edit the storage vault message (only if it exists!)
+        if data["storage_chat_id"] and data["storage_msg_id"]:
+            try:
+                await client.edit_message_text(
+                    chat_id=data["storage_chat_id"],
+                    message_id=data["storage_msg_id"],
+                    text=message.text.html
+                )
+            except Exception:
+                await client.edit_message_caption(
+                    chat_id=data["storage_chat_id"],
+                    message_id=data["storage_msg_id"],
+                    caption=message.text.html
+                )
             
-        await status.edit("✅ **Successfully updated the message in both Main and Storage channels!**")
+        await status.edit("✅ **Successfully updated the message!**")
         
     except Exception as e:
         await status.edit(f"❌ **Failed to edit:**\n`{e}`")
