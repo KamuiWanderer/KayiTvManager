@@ -46,7 +46,8 @@ async def auto_mirror(client, message):
         print(f"❌ Auto-Mirror Failed for {link_data['alias']}: {error_msg}")
 
 # --- 2. THE ULTIMATE RELOAD COMMAND (Scan + Auto-Sync) ---
-@Client.on_message(filters.command(["resync", "reload"]) & filters.private)
+# Added 'group=1' to bypass ANY command clashes or conversation traps!
+@Client.on_message(filters.command(["resync", "reload"]) & filters.private, group=1)
 async def reload_cmd(client, message):
     print(f"🚨 [SYSTEM] Command received: {message.text}") # Forces a log entry!
     
