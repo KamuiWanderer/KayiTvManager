@@ -77,7 +77,7 @@ async def reload_cmd(client, message):
     # --- CURE THE AMNESIA (Fix for PeerIdInvalid) ---
     try:
         await user_app.get_chat(main_id)
-    except PeerIdInvalid:
+    except (PeerIdInvalid, ValueError, KeyError):
         await status.edit(f"🔄 **Syncing Userbot memory... (Grabbing access hashes)**")
         async for _ in user_app.get_dialogs(limit=200):
             pass  # Silently caches all chat IDs so it recognizes the channel
