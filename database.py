@@ -16,12 +16,18 @@ db = client["KayiTvManager"]
 links_collection = db["channel_links"]
 
 # --- Pair Management ---
-async def register_link(alias, main_id, storage_id):
+async def register_link(alias, main_id, storage_id=None):
+    update_data = {"main_id": int(main_id)}
+    
+    # Safely handle standalone channels
+    update_data["storage_id"] = int(storage_id) if storage_id else None
+        
     await links_collection.update_one(
         {"alias": alias},
-        {"$set": {"main_id": int(main_id), "storage_id": int(storage_id)}},
+        {"$set": update_data},
         upsert=True
     )
+
 
 async def get_all_links():
     return await links_collection.find({}).to_list(length=100)
