@@ -30,7 +30,7 @@ def translate_error(e: Exception) -> str:
         return f"⚠️ System Error: {type(e).__name__} - {str(e)}"
 
 # --- 1. AUTO-MIRROR (Instantly copy new messages) ---
-@Client.on_message(filters.channel & ~filters.edited)
+@Client.on_message(filters.channel)
 async def auto_mirror(client, message):
     links = await get_all_links()
     link_data = next((l for l in links if l["main_id"] == message.chat.id), None)
