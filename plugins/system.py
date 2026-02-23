@@ -45,3 +45,28 @@ async def start_command(client, message):
     )
     
     await message.reply(welcome_text)
+
+from database import add_episode_file, get_series
+from pyrogram import Client, filters
+
+@Client.on_message(filters.command("test_db") & filters.private)
+async def test_database_logic(client, message):
+    alias = "Vefa"
+    # We simulate adding Season 1, Episode 1, Quality 720p
+    await add_episode_file(
+        alias=alias,
+        season_no=1,
+        ep_no=1,
+        quality="720p",
+        file_id="TEST_FILE_ID_123",
+        storage_msg_id=999
+    )
+    
+    # Now we try to retrieve it to see if the tree exists
+    data = await get_series(alias)
+    
+    if data and "Seasons" in data:
+        await message.reply(f"✅ **Database Test Passed!**\n\nStructure Created:\n`{data['Seasons']}`")
+    else:
+        await message.reply("❌ **Database Test Failed.** Structure was not created.")
+
