@@ -202,7 +202,6 @@ async def reload_cmd(client, message):
         for failed_id, reason in error_log.items():
             error_text += f"• **ID {failed_id}:** `{reason}`\n"
             
-        # Telegram max message length is 4096 characters. 
         if len(error_text) > 4000:
             error_text = error_text[:4000] + "\n\n*(...Log truncated due to Telegram length limits)*"
             
