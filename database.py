@@ -12,16 +12,14 @@ db = client["KayiTvManager"]
 
 # V3.0 Collections
 series_collection = db["series_data"]
-links_collection = db["channel_links"] # Keeping this alive for your legacy commands to not break
+links_collection = db["channel_links"]
 
 # ==========================================
 # MODULE 1: THE V3.0 DOCUMENT ARCHITECTURE 
 # ==========================================
 
 async def create_or_update_series(alias, series_name, main_id, storage_id):
-    """
-    Initializes a new series in the database with the default dynamic Post_Template.
-    """
+    """Initializes a new series in the database."""
     default_template = "<blockquote><b> {series_name} | Season {season_no} </b></blockquote>\n<b>Episode {ep_no} 👇</b>"
     
     doc = {
@@ -31,7 +29,6 @@ async def create_or_update_series(alias, series_name, main_id, storage_id):
         "Storage_Channel_ID": int(storage_id) if storage_id else None,
     }
     
-    # $setOnInsert ensures we don't accidentally wipe existing Seasons or Templates if we update the channel IDs later
     await series_collection.update_one(
         {"Alias": alias},
         {
@@ -42,19 +39,13 @@ async def create_or_update_series(alias, series_name, main_id, storage_id):
     )
 
 async def update_post_template(alias, template_html):
-    """Allows the user to customize the formatting template via bot commands."""
     await series_collection.update_one(
         {"Alias": alias},
         {"$set": {"Post_Template": template_html}}
     )
 
 async def add_episode_file(alias, season_no, ep_no, quality, file_id, storage_msg_id, main_msg_id=None):
-    """
-    The magic engine: Uses MongoDB Dot Notation to dynamically build the collapsible tree:
-    Seasons -> 1 -> Episodes -> 1 -> Qualities -> 1080p
-    """
     path = f"Seasons.{season_no}.Episodes.{ep_no}.Qualities.{quality}"
-    
     file_data = {
         "file_id": file_id,
         "storage_msg_id": int(storage_msg_id) if storage_msg_id else None,
@@ -68,15 +59,13 @@ async def add_episode_file(alias, season_no, ep_no, quality, file_id, storage_ms
     )
 
 async def get_series(alias):
-    """Returns the entire massive collapsible JSON document for a specific series."""
     return await series_collection.find_one({"Alias": alias})
 
 async def get_all_series():
-    """Returns a basic list of all active series for the /series command."""
     return await series_collection.find({}, {"Alias": 1, "Series_Name": 1}).to_list(length=100)
 
 # ==========================================
-# LEGACY HELPER FUNCTIONS (Kept intact)
+# LEGACY HELPER FUNCTIONS (Kept intact to prevent crashes)
 # ==========================================
 
 async def db_ping():
@@ -94,3 +83,15 @@ async def register_link(alias, main_id, storage_id=None):
 
 async def get_all_links(): return await links_collection.find({}).to_list(length=100)
 async def get_link_by_main_id(main_id): return await links_collection.find_one({"main_id": int(main_id)})
+
+# Legacy Mapping for manager.py and editor.py
+async def save_map(alias, main_id, storage_id):
+    await db[f"map_{alias}"].update_one(
+        {"main_id": int(main_id)},
+        {"$set": {"storage_id": int(storage_id)}},
+        upsert=True
+    )
+
+async def get_map(alias, main_id):
+    data = await db[f"map_{alias}"].find_one({"main_id": int(main_id)})
+    return data["storage_id"] if data else None
