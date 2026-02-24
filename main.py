@@ -12,6 +12,7 @@ if not API_ID or not API_HASH or not BOT_TOKEN:
 
 print("✅ [2/4] Environment variables verified.")
 
+
 class Bot(Client):
     def __init__(self):
         super().__init__(
@@ -28,18 +29,25 @@ class Bot(Client):
         print(f"✅ [4/4] Bot online → @{me.username}")
         start_ping_service()
 
+
 async def main():
     print("✅ [3/4] Starting bot...")
     app = Bot()
+    await app.start()
+    await idle()
+    # idle() returns when Pyrogram catches SIGTERM/SIGINT.
+    # By then the client may already be stopping — so we guard the stop call.
     try:
-        await app.start()
-        await idle()
-    finally:
         await app.stop()
+    except Exception:
+        pass  # Client already terminated by the signal — this is fine
+
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        pass  # Clean shutdown — not a crash
     except Exception as e:
         print(f"❌ FATAL: {e}")
         sys.exit(1)
