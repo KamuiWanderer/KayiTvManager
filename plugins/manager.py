@@ -3,7 +3,7 @@ import time
 import asyncio
 from pyrogram import Client, filters
 from pyrogram.errors import (
-    FloodWait, PeerIdInvalid, ChatAdminRequired, 
+    FloodWait, PeerIdInvalid, ChatAdminRequired,
     MessageIdInvalid, MessageNotModified, RPCError
 )
 from database import get_all_links, save_map, get_map
@@ -29,21 +29,81 @@ def translate_error(e: Exception) -> str:
     else:
         return f"System Error: {type(e).__name__}"
 
-# --- 1. AUTO-MIRROR (Instantly copy new live messages) ---
+
+# ===========================================================================
+# BUG FIX — AUTO-MIRROR (Main Channel → Storage Channel)
+#
+# ROOT CAUSE OF THE BROKEN SYNC:
+# The old code used:  int(l["main_id"]) == message.chat.id
+# and also called:    message.copy(chat_id=...)
+#
+# TWO BUGS:
+#
+# BUG 1 — TYPE MISMATCH:
+#   Older documents registered before the int() cast was added in register_link()
+#   may still have main_id stored as a string in MongoDB (e.g. "-100123456789").
+#   When the next() comparison runs, str != int, so link_data is always None
+#   and the handler silently returns without doing anything.
+#   FIX: Cast BOTH sides to int() inside a try/except so malformed entries
+#   don't crash the loop.
+#
+# BUG 2 — message.copy() vs client.copy_message():
+#   message.copy() is a shorthand method that internally calls forward_messages,
+#   which BREAKS if the channel has "Restrict Saving Content" turned on.
+#   client.copy_message() is the correct low-level call that bypasses this
+#   restriction entirely and is the right tool per Telegram's Bot API.
+#   FIX: Replace message.copy() with client.copy_message().
+# ===========================================================================
 @Client.on_message(filters.channel)
 async def auto_mirror(client, message):
+    # Safety guard
+    if not message.chat or not message.chat.id:
+        return
+
     links = await get_all_links()
-    link_data = next((l for l in links if int(l["main_id"]) == message.chat.id), None)
-    
+    link_data = None
+
+    for l in links:
+        try:
+            # FIX: cast BOTH sides to int — type mismatch was the silent killer
+            if int(l["main_id"]) == int(message.chat.id):
+                link_data = l
+                break
+        except (ValueError, TypeError):
+            continue  # Skip malformed DB entries instead of crashing
+
     if not link_data or not link_data.get("storage_id"):
-        return  
-        
+        return
+
+    print(f"✅ [AUTO-MIRROR] Message in '{link_data['alias']}' (id={message.id}) → copying to storage...")
+
     try:
-        copied = await message.copy(chat_id=int(link_data['storage_id']))
-        await save_map(link_data['alias'], message.id, copied.id)
+        # FIX: Use client.copy_message() — NOT message.copy()
+        # message.copy() uses forward_messages under the hood which breaks on
+        # restricted channels. copy_message() always works.
+        copied = await client.copy_message(
+            chat_id=int(link_data["storage_id"]),
+            from_chat_id=int(link_data["main_id"]),
+            message_id=message.id
+        )
+        await save_map(link_data["alias"], message.id, copied.id)
+        print(f"✅ [AUTO-MIRROR] Success → storage_msg_id={copied.id}")
+
+    except FloodWait as e:
+        print(f"⏳ [AUTO-MIRROR] FloodWait {e.value}s — retrying...")
+        await asyncio.sleep(e.value + 1)
+        try:
+            copied = await client.copy_message(
+                chat_id=int(link_data["storage_id"]),
+                from_chat_id=int(link_data["main_id"]),
+                message_id=message.id
+            )
+            await save_map(link_data["alias"], message.id, copied.id)
+        except Exception as retry_e:
+            print(f"❌ [AUTO-MIRROR] Retry failed: {translate_error(retry_e)}")
+
     except Exception as e:
-        error_msg = translate_error(e)
-        print(f"❌ Auto-Mirror Failed for {link_data['alias']}: {error_msg}")
+        print(f"❌ [AUTO-MIRROR] Failed for '{link_data['alias']}': {translate_error(e)}")
 
 # --- 2. THE ULTIMATE RELOAD COMMAND (Scan + Auto-Sync) ---
 # Added 'group=1' to bypass ANY command clashes or conversation traps!
