@@ -2,7 +2,6 @@ import time
 import asyncio
 import psutil
 import platform
-from datetime import datetime, timezone
 from pyrogram import Client, filters
 from pyrogram.types import Message
 import database
@@ -11,11 +10,12 @@ from config import is_admin
 # Track when the bot process started so we can show uptime
 BOT_START_TIME = time.time()
 
+
 def format_uptime(seconds: float) -> str:
     seconds = int(seconds)
-    days,    seconds  = divmod(seconds, 86400)
-    hours,   seconds  = divmod(seconds, 3600)
-    minutes, seconds  = divmod(seconds, 60)
+    days,    seconds = divmod(seconds, 86400)
+    hours,   seconds = divmod(seconds, 3600)
+    minutes, seconds = divmod(seconds, 60)
     parts = []
     if days:    parts.append(f"{days}d")
     if hours:   parts.append(f"{hours}h")
@@ -23,12 +23,18 @@ def format_uptime(seconds: float) -> str:
     parts.append(f"{seconds}s")
     return " ".join(parts)
 
-def format_bytes(bytes_val: int) -> str:
+
+def format_bytes(b: int) -> str:
     for unit in ["B", "KB", "MB", "GB"]:
-        if bytes_val < 1024:
-            return f"{bytes_val:.1f} {unit}"
-        bytes_val /= 1024
-    return f"{bytes_val:.1f} TB"
+        if b < 1024:
+            return f"{b:.1f} {unit}"
+        b /= 1024
+    return f"{b:.1f} TB"
+
+
+def bar(pct, width=10):
+    filled = round(pct / 100 * width)
+    return "█" * filled + "░" * (width - filled)
 
 
 # ── /start ────────────────────────────────────────────────────────────────────
@@ -48,17 +54,18 @@ async def ping_handler(client: Client, message: Message):
     if not is_admin(message.from_user.id):
         return await message.reply("🚫 **Access Denied.**")
 
-    sent = await message.reply("`Measuring latency...`")
-
-    # Telegram round-trip
-    tg_start  = time.perf_counter()
-    await sent.edit("`Measuring latency...`")
+    # FIX: Measure latency by timing the reply itself (not an edit).
+    # Editing to the same text causes MESSAGE_NOT_MODIFIED.
+    # Instead we time how long message.reply() takes — that IS the round trip.
+    tg_start = time.perf_counter()
+    sent = await message.reply("`📡 Pinging...`")
     tg_latency = round((time.perf_counter() - tg_start) * 1000)
 
     # MongoDB round-trip
     db_latency = await database.db_ping()
-    db_text    = f"`{db_latency}ms`" if db_latency != "Offline" else "🔴 `Offline`"
+    db_text = f"`{db_latency}ms`" if db_latency != "Offline" else "🔴 `Offline`"
 
+    # Now edit to the real result — different text so no MESSAGE_NOT_MODIFIED
     await sent.edit(
         f"🚀 **System Ping**\n\n"
         f"📡 **Telegram:**  `{tg_latency}ms`\n"
@@ -72,37 +79,29 @@ async def server_handler(client: Client, message: Message):
     if not is_admin(message.from_user.id):
         return await message.reply("🚫 **Access Denied.**")
 
-    sent = await message.reply("`Collecting system data...`")
+    # FIX: Same approach — time the initial reply, then edit with full results.
+    tg_start = time.perf_counter()
+    sent = await message.reply("`⏳ Collecting system data...`")
+    tg_latency = round((time.perf_counter() - tg_start) * 1000)
 
     # ── Gather stats ──────────────────────────────────────────────────────────
     uptime_str = format_uptime(time.time() - BOT_START_TIME)
 
-    cpu_pct    = psutil.cpu_percent(interval=1)
-    cpu_cores  = psutil.cpu_count(logical=True)
+    cpu_pct   = psutil.cpu_percent(interval=1)
+    cpu_cores = psutil.cpu_count(logical=True)
 
-    ram        = psutil.virtual_memory()
-    ram_used   = format_bytes(ram.used)
-    ram_total  = format_bytes(ram.total)
-    ram_pct    = ram.percent
+    ram       = psutil.virtual_memory()
+    ram_used  = format_bytes(ram.used)
+    ram_total = format_bytes(ram.total)
+    ram_pct   = ram.percent
 
     disk       = psutil.disk_usage("/")
     disk_used  = format_bytes(disk.used)
     disk_total = format_bytes(disk.total)
     disk_pct   = disk.percent
 
-    # Telegram latency
-    tg_start   = time.perf_counter()
-    await sent.edit("`Collecting system data...`")
-    tg_latency = round((time.perf_counter() - tg_start) * 1000)
-
-    # MongoDB latency
     db_latency = await database.db_ping()
     db_text    = f"`{db_latency}ms`" if db_latency != "Offline" else "🔴 `Offline`"
-
-    # CPU bar
-    def bar(pct, width=10):
-        filled = round(pct / 100 * width)
-        return "█" * filled + "░" * (width - filled)
 
     await sent.edit(
         f"🖥️ **SERVER DASHBOARD**\n"
